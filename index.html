@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Good Fox — Crafts Atelier</title>
+    <meta name="description" content="Makers &amp; Craftsmen Crafts Atelier — Good Fox hero with cursor-path dark-twin reveal.">
+    <meta property="og:title" content="Good Fox — Crafts Atelier">
+    <meta property="og:description" content="Makers &amp; Craftsmen Crafts Atelier — Good Fox hero with cursor-path dark-twin reveal.">
+    <meta property="og:type" content="website">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=Space+Mono:wght@400;700&amp;display=swap" rel="stylesheet">
+    <style>
+:root { --front:#29a3f4; --back:#ff0a8c; --ink:#ffffff; --gutter:clamp(16px, 2.2vw, 32px); }
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; }
+body { background:var(--front); color:var(--ink); font-family:"Space Mono", ui-monospace, monospace; overflow:hidden; -webkit-font-smoothing:antialiased; }
+.hero { position:relative; width:100vw; height:100vh; height:100svh; overflow:hidden; background:var(--front); touch-action:none; cursor:crosshair; }
+.hero canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.ui { position:absolute; z-index:3; font-size:12px; line-height:1.6; letter-spacing:.14em; text-transform:uppercase; pointer-events:none; text-shadow:0 0 1px rgba(255,255,255,.35); }
+.ui > * { pointer-events:auto; }
+.ui-tl { top:var(--gutter); left:var(--gutter); }
+.ui-tr { top:var(--gutter); right:var(--gutter); text-align:right; }
+.ui-bl { bottom:var(--gutter); left:var(--gutter); }
+.sound { display:inline-flex; align-items:center; gap:14px; background:none; border:0; color:inherit; font:inherit; letter-spacing:inherit; text-transform:inherit; cursor:pointer; padding:4px 0; }
+.sound svg { width:26px; height:22px; flex:none; }
+.sound .wave { display:none; }
+.sound[aria-pressed="true"] .wave { display:block; }
+.sound[aria-pressed="true"] .mute { display:none; }
+.sound:focus-visible { outline:1px dashed #fff; outline-offset:4px; }
+.dash { display:block; width:26px; height:2px; background:currentColor; margin-bottom:18px; }
+.loader { position:absolute; inset:0; z-index:4; display:grid; place-items:center; background:var(--front); font-size:11px; letter-spacing:.3em; text-transform:uppercase; transition:opacity .8s ease, visibility .8s; }
+.loader.done { opacity:0; visibility:hidden; }
+@media (max-width:640px) {
+  .ui { font-size:10px; letter-spacing:.12em; }
+  .sound { gap:10px; }
+  .sound svg { width:22px; height:18px; }
+  .dash { width:22px; margin-bottom:12px; }
+}
+    </style>
+  </head>
+  <body>
+    <main class="hero" id="hero">
+      <h1 class="sr-only">Good Fox — Makers &amp; Craftsmen Crafts Atelier</h1>
+      <canvas id="view" role="img" aria-label="A pale winged fox with a halo and gold cross; dragging the mouse unveils its dark twin, an ink fox with a pink cross on neon pink."></canvas>
+
+      <div class="ui ui-tl">
+        <button class="sound" id="sound" type="button" aria-pressed="false">
+          <svg viewBox="0 0 26 22" fill="none" aria-hidden="true">
+            <path d="M2 8h4l6-5v16l-6-5H2z" fill="currentColor"/>
+            <g class="mute" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M17 13l5 5M22 13l-5 5"/></g>
+            <g class="wave" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"><path d="M16 7.5a5 5 0 0 1 0 7"/><path d="M19 4.5a9 9 0 0 1 0 13"/></g>
+          </svg>
+          <span id="soundLabel">Audio off</span>
+        </button>
+      </div>
+      <div class="ui ui-tr">Makers &amp; Craftsmen<br>Crafts Atelier</div>
+      <div class="ui ui-bl"><span class="dash"></span>Workshop Formation<br>Akin to an Arts Guild</div>
+      <div class="loader" id="loader">Opening</div>
+    </main>
+
+    <script>
+(() => {
+  "use strict";
+
+  const FRONT_URL = "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261019_144902_95c42d4b-a268-49cb-82c6-5c7688018feb.png";
+  const BACK_URL = "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261019_144904_f862cff1-c396-4e6e-91ed-1b5b0eb085a7.png";
+
+  const COLORS = {
+    front: "#29a3f4",
+    back: "#ff0a8c",
+    textFront: "#ffffff",
+    textBack: "#fff4f9"
+  };
+  const WORDS = ["GOOD", "FOX"];
+  const FONT = "Anton";
+
+  // Elements
+  const hero = document.getElementById("hero");
+  const viewCanvas = document.getElementById("view");
+  const viewCtx = viewCanvas.getContext("2d");
+  const soundBtn = document.getElementById("sound");
+  const soundLabel = document.getElementById("soundLabel");
+  const loader = document.getElementById("loader");
+
+  // Sound button toggle
+  soundBtn.addEventListener("click", () => {
+    const isPressed = soundBtn.getAttribute("aria-pressed") === "true";
+    soundBtn.setAttribute("aria-pressed", String(!isPressed));
+    soundLabel.textContent = !isPressed ? "Audio on" : "Audio off";
+  });
+
+  // Offscreen canvases
+  const bufB = document.createElement("canvas");
+  const bufBCtx = bufB.getContext("2d");
+
+  const textA = document.createElement("canvas");
+  const textACtx = textA.getContext("2d");
+
+  const textB = document.createElement("canvas");
+  const textBCtx = textB.getContext("2d");
+
+  const staticA = document.createElement("canvas");
+  const staticCtx = staticA.getContext("2d");
+
+  const maskCanvas = document.createElement("canvas");
+  const maskCtx = maskCanvas.getContext("2d");
+
+  const glowCanvas = document.createElement("canvas");
+  const glowCtx = glowCanvas.getContext("2d");
+
+  // Sizing & layout state
+  let w = 0;
+  let h = 0;
+  let dpr = 1;
+  let W = 0;
+  let H = 0;
+  let mw = 0;
+  let mh = 0;
+  let layoutData = null;
+  let frontImage = null;
+  let backImage = null;
+
+  // Mask state
+  let field = null;
+  let maskImgData = null;
+  let glowImgData = null;
+  let maskMax = 0;
+  let lastStamp = null;
+
+  // Particle state
+  let numParticles = 0;
+  let cellSize = 4;
+  let burstR = 100;
+  let textBox = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+  let hx = null;
+  let hy = null;
+  let ox = null;
+  let oy = null;
+  let vx = null;
+  let vy = null;
+  let d = null;
+  let r = null;
+  let on = null;
+  let activeList = [];
+  let slices = [];
+  let textA_clean = false;
+  let textB_clean = false;
+
+  // Pointer state
+  const pointer = {
+    x: 0,
+    y: 0,
+    prevX: 0,
+    prevY: 0,
+    velX: 0,
+    velY: 0,
+    speed: 0,
+    active: false
+  };
+
+  // Mulberry32 PRNG
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function smoothstep(edge0, edge1, x) {
+    if (x <= edge0) return 0;
+    if (x >= edge1) return 1;
+    const t = (x - edge0) / (edge1 - edge0);
+    return t * t * (3 - 2 * t);
+  }
+
+  // Layout calculation
+  function computeLayout() {
+    const portrait = h > w * 1.1;
+
+    // Measure "GOOD" in Anton at 100px font size
+    staticCtx.font = "400 100px " + FONT;
+    const mGood100 = staticCtx.measureText(WORDS[0]);
+    const wGood = mGood100.width / 100;
+
+    let imgS, imgX, imgY, fontSize, words;
+
+    if (!portrait) {
+      // LANDSCAPE
+      imgS = Math.min(h * 1.02, w * 0.62);
+      imgX = (w - imgS) / 2;
+      imgY = h - imgS * 0.98;
+      const gap = imgS * 0.15;
+      const avail = w / 2 - gap - w * 0.035;
+      fontSize = Math.min(avail / wGood, h * 0.46);
+      const cy = imgY + imgS * 0.36;
+
+      staticCtx.font = "400 " + fontSize + "px " + FONT;
+      const mGood = staticCtx.measureText(WORDS[0]);
+      const mFox = staticCtx.measureText(WORDS[1]);
+      const baselineGood = cy + (mGood.actualBoundingBoxAscent - mGood.actualBoundingBoxDescent) / 2;
+      const baselineFox = cy + (mFox.actualBoundingBoxAscent - mFox.actualBoundingBoxDescent) / 2;
+
+      words = [
+        { text: WORDS[0], x: w / 2 - gap, baseline: baselineGood, align: "right" },
+        { text: WORDS[1], x: w / 2 + gap, baseline: baselineFox, align: "left" }
+      ];
+    } else {
+      // PORTRAIT (mobile)
+      imgS = Math.min(w * 1.18, h * 0.64);
+      imgX = (w - imgS) / 2;
+      imgY = h - imgS;
+      fontSize = Math.min(w * 0.9 / wGood, h * 0.2);
+
+      staticCtx.font = "400 " + fontSize + "px " + FONT;
+      const mCombined = staticCtx.measureText("GOODFOX");
+      const capH = mCombined.actualBoundingBoxAscent + mCombined.actualBoundingBoxDescent;
+      const top = Math.max(70, h * 0.09);
+      const bottom = imgY + imgS * 0.2;
+      const lead = capH * 1.06;
+      const mid = (top + bottom) / 2;
+
+      const yGood = mid - lead / 2;
+      const yFox = mid + lead / 2;
+
+      const mGood = staticCtx.measureText(WORDS[0]);
+      const mFox = staticCtx.measureText(WORDS[1]);
+      const baselineGood = yGood + (mGood.actualBoundingBoxAscent - mGood.actualBoundingBoxDescent) / 2;
+      const baselineFox = yFox + (mFox.actualBoundingBoxAscent - mFox.actualBoundingBoxDescent) / 2;
+
+      words = [
+        { text: WORDS[0], x: w / 2, baseline: baselineGood, align: "center" },
+        { text: WORDS[1], x: w / 2, baseline: baselineFox, align: "center" }
+      ];
+    }
+
+    layoutData = {
+      portrait,
+      imgX,
+      imgY,
+      imgS,
+      fontSize,
+      words
+    };
+  }
+
+  function drawStaticText() {
+    staticCtx.clearRect(0, 0, W, H);
+    staticCtx.fillStyle = COLORS.textFront;
+    staticCtx.font = "400 " + (layoutData.fontSize * dpr) + "px " + FONT;
+    staticCtx.textBaseline = "alphabetic";
+
+    for (let i = 0; i < layoutData.words.length; i++) {
+      const item = layoutData.words[i];
+      staticCtx.textAlign = item.align;
+      staticCtx.fillText(item.text, item.x * dpr, item.baseline * dpr);
+    }
+  }
+
+  function initMask() {
+    mw = Math.ceil(w / 5);
+    mh = Math.ceil(h / 5);
+    field = new Float32Array(mw * mh);
+    maskMax = 0;
+    lastStamp = null;
+
+    maskCanvas.width = mw;
+    maskCanvas.height = mh;
+    glowCanvas.width = mw;
+    glowCanvas.height = mh;
+
+    maskImgData = maskCtx.createImageData(mw, mh);
+    glowImgData = glowCtx.createImageData(mw, mh);
+
+    const mData = maskImgData.data;
+    const gData = glowImgData.data;
+    const total = mw * mh * 4;
+    for (let i = 0; i < total; i += 4) {
+      mData[i] = 255;
+      mData[i + 1] = 255;
+      mData[i + 2] = 255;
+      mData[i + 3] = 0;
+
+      gData[i] = 255;
+      gData[i + 1] = 255;
+      gData[i + 2] = 255;
+      gData[i + 3] = 0;
+    }
+    maskCtx.putImageData(maskImgData, 0, 0);
+    glowCtx.putImageData(glowImgData, 0, 0);
+  }
+
+  function buildParticles() {
+    drawStaticText();
+
+    cellSize = Math.max(3, Math.round(layoutData.fontSize * dpr / 46));
+    burstR = layoutData.fontSize * dpr * (layoutData.portrait ? 0.5 : 0.42);
+
+    const imgData = staticCtx.getImageData(0, 0, W, H);
+    const data = imgData.data;
+
+    const hxList = [];
+    const hyList = [];
+    let minBx = Infinity;
+    let maxBx = -Infinity;
+    let minBy = Infinity;
+    let maxBy = -Infinity;
+
+    const halfCs = Math.floor(cellSize / 2);
+    for (let y = halfCs; y < H; y += cellSize) {
+      const rowOffset = y * W * 4;
+      for (let x = halfCs; x < W; x += cellSize) {
+        const alpha = data[rowOffset + x * 4 + 3];
+        if (alpha > 110) {
+          hxList.push(x);
+          hyList.push(y);
+          if (x < minBx) minBx = x;
+          if (x > maxBx) maxBx = x;
+          if (y < minBy) minBy = y;
+          if (y > maxBy) maxBy = y;
+        }
+      }
+    }
+
+    numParticles = hxList.length;
+    hx = new Float32Array(numParticles);
+    hy = new Float32Array(numParticles);
+    ox = new Float32Array(numParticles);
+    oy = new Float32Array(numParticles);
+    vx = new Float32Array(numParticles);
+    vy = new Float32Array(numParticles);
+    d = new Float32Array(numParticles);
+    r = new Float32Array(numParticles);
+    on = new Uint8Array(numParticles);
+
+    const rng = mulberry32(7);
+    for (let i = 0; i < numParticles; i++) {
+      hx[i] = hxList[i];
+      hy[i] = hyList[i];
+      r[i] = rng();
+    }
+
+    if (numParticles > 0) {
+      textBox = {
+        minX: minBx - cellSize * 8,
+        maxX: maxBx + cellSize * 8,
+        minY: minBy - cellSize * 4,
+        maxY: maxBy + cellSize * 4
+      };
+    } else {
+      textBox = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+    }
+
+    activeList = [];
+    slices = [];
+    textA_clean = false;
+    textB_clean = false;
+  }
+
+  function resize() {
+    w = hero.clientWidth || window.innerWidth;
+    h = hero.clientHeight || window.innerHeight;
+    if (!w || !h) {
+      setTimeout(resize, 100);
+      return;
+    }
+
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const maxPx = (w < 760) ? 2.4e6 : 3.4e6;
+    if (w * h * dpr * dpr > maxPx) {
+      dpr = Math.sqrt(maxPx / (w * h));
+    }
+
+    W = Math.round(w * dpr);
+    H = Math.round(h * dpr);
+
+    viewCanvas.width = W;
+    viewCanvas.height = H;
+
+    bufB.width = W;
+    bufB.height = H;
+
+    textA.width = W;
+    textA.height = H;
+
+    textB.width = W;
+    textB.height = H;
+
+    staticA.width = W;
+    staticA.height = H;
+
+    computeLayout();
+    initMask();
+    buildParticles();
+  }
+
+  let resizeDebounce = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeDebounce);
+    resizeDebounce = setTimeout(resize, 120);
+  });
+
+  // Stamping mouse trail mask
+  function stampBlob(fx, fy, fr) {
+    const fr2 = fr * fr * 0.42;
+    const bound = fr * 2.5;
+    const minX = Math.max(0, Math.floor(fx - bound));
+    const maxX = Math.min(mw - 1, Math.ceil(fx + bound));
+    const minY = Math.max(0, Math.floor(fy - bound));
+    const maxY = Math.min(mh - 1, Math.ceil(fy + bound));
+
+    for (let cy = minY; cy <= maxY; cy++) {
+      const dy = cy - fy;
+      const dy2 = dy * dy;
+      const rowOffset = cy * mw;
+      for (let cx = minX; cx <= maxX; cx++) {
+        const dx = cx - fx;
+        const d2 = dx * dx + dy2;
+        const g = Math.exp(-d2 / fr2);
+        if (g < 0.01) continue;
+        const idx = rowOffset + cx;
+        const cur = field[idx];
+        field[idx] = cur + g * 0.28 * (1.05 - cur);
+      }
+    }
+  }
+
+  function updateMask(k) {
+    if (pointer.active) {
+      const rad = Math.min(w, h) * (layoutData.portrait ? 0.20 : 0.14) * (1 + Math.min(pointer.speed, 40) / 40 * 0.55);
+      const spacing = rad * 0.22;
+      const currX = pointer.x;
+      const currY = pointer.y;
+
+      if (!lastStamp) {
+        lastStamp = { x: currX, y: currY };
+        stampBlob(currX / 5, currY / 5, rad / 5);
+      } else {
+        const dx = currX - lastStamp.x;
+        const dy = currY - lastStamp.y;
+        const dist = Math.hypot(dx, dy);
+        const steps = Math.min(40, Math.max(1, Math.floor(dist / spacing)));
+        for (let s = 1; s <= steps; s++) {
+          const frac = s / steps;
+          const sx = lastStamp.x + dx * frac;
+          const sy = lastStamp.y + dy * frac;
+          stampBlob(sx / 5, sy / 5, rad / 5);
+        }
+        lastStamp.x = currX;
+        lastStamp.y = currY;
+      }
+    } else {
+      lastStamp = null;
+    }
+
+    // Decay each frame (k = dt * 60)
+    const decayFactor = Math.pow(0.958, k);
+    const decaySub = 0.0035 * k;
+    let maxVal = 0;
+    const mData = maskImgData.data;
+    const gData = glowImgData.data;
+    const totalCells = mw * mh;
+
+    for (let i = 0; i < totalCells; i++) {
+      let v = field[i];
+      if (v > 0) {
+        v = v * decayFactor - decaySub;
+        if (v < 0) v = 0;
+        field[i] = v;
+      }
+      if (v > maxVal) maxVal = v;
+
+      const maskA = smoothstep(0.10, 0.42, v) * 255;
+      const s1 = smoothstep(0.02, 0.12, v);
+      const s2 = smoothstep(0.12, 0.38, v);
+      const glowA = s1 * (1 - s2) * 230;
+
+      const pIdx = i * 4 + 3;
+      mData[pIdx] = maskA;
+      gData[pIdx] = glowA;
+    }
+
+    maskMax = maxVal;
+    maskCtx.putImageData(maskImgData, 0, 0);
+    glowCtx.putImageData(glowImgData, 0, 0);
+  }
+
+  // Update particles & slice glitches
+  function updateParticles(dt, k) {
+    const moving = pointer.active && pointer.speed > 0.25;
+    const sp = Math.min(pointer.speed, 35) / 35;
+    const damp = Math.pow(0.9, k);
+    const life = dt / 0.85;
+    const nvx = pointer.speed > 0.001 ? pointer.velX / pointer.speed : 0;
+    const nvy = pointer.speed > 0.001 ? pointer.velY / pointer.speed : 0;
+
+    const px = pointer.x * dpr;
+    const py = pointer.y * dpr;
+    const R = burstR;
+    const cs = cellSize;
+
+    // Horizontal slice glitch
+    if (moving && pointer.speed > 6 &&
+        px >= textBox.minX && px <= textBox.maxX &&
+        py >= textBox.minY && py <= textBox.maxY &&
+        Math.random() < 0.6) {
+      const numSlices = Math.random() < 0.5 ? 1 : 2;
+      for (let s = 0; s < numSlices; s++) {
+        const randY = Math.random();
+        const randH = Math.random();
+        const randShift = Math.random();
+        const randLife = Math.random();
+        const signVx = pointer.velX >= 0 ? 1 : -1;
+        slices.push({
+          x: px - R * 1.4,
+          y: py + (randY - 0.5) * R * 1.6,
+          w: R * 2.8,
+          h: cs * (0.5 + randH * 3),
+          shift: signVx * cs * (2 + randShift * 12),
+          life: 0.08 + randLife * 0.22
+        });
+      }
+    }
+
+    // Decay slices
+    for (let i = slices.length - 1; i >= 0; i--) {
+      slices[i].life -= dt;
+      if (slices[i].life <= 0) {
+        slices.splice(i, 1);
+      }
+    }
+
+    // Burst impulses on particles within burstR
+    if (moving &&
+        px >= textBox.minX - R && px <= textBox.maxX + R &&
+        py >= textBox.minY - R && py <= textBox.maxY + R) {
+      const R2 = R * R;
+      for (let i = 0; i < numParticles; i++) {
+        const curX = hx[i] + ox[i];
+        const curY = hy[i] + oy[i];
+        const dx = curX - px;
+        const dy = curY - py;
+        const dist2 = dx * dx + dy * dy;
+        if (dist2 < R2) {
+          const dist = Math.sqrt(dist2) || 0.001;
+          const f = 1 - dist / R;
+          d[i] = Math.min(1, Math.max(d[i], f * (0.9 + sp)));
+          const imp = f * dpr * (0.35 + sp * 1.4);
+          const turb = (r[i] - 0.5) * 2;
+          const randVal = Math.random();
+          vx[i] += (dx / dist) * imp * 2.2 + nvx * imp * 3.2 + imp * 0.8 + turb * imp * 2.4;
+          vy[i] += (dy / dist) * imp * 2.2 + nvy * imp * 3.2 - imp * 0.6 + (randVal - 0.5) * imp * 3;
+          on[i] = 1;
+        }
+      }
+    }
+
+    // Update active particles
+    const nextActive = [];
+    for (let i = 0; i < numParticles; i++) {
+      if (on[i] === 0) continue;
+
+      const rand1 = Math.random();
+      const rand2 = Math.random();
+      vx[i] += (rand1 - 0.5) * d[i] * 0.5 * dpr * k;
+      vy[i] += ((rand2 - 0.5) * 0.5 - 0.05) * d[i] * dpr * k;
+
+      const oneMinusD = 1 - d[i];
+      const spring = 0.075 * oneMinusD * oneMinusD * k;
+      vx[i] = (vx[i] - ox[i] * spring) * damp;
+      vy[i] = (vy[i] - oy[i] * spring) * damp;
+      ox[i] += vx[i] * k;
+      oy[i] += vy[i] * k;
+      d[i] = Math.max(0, d[i] - life);
+
+      if (d[i] === 0 &&
+          Math.abs(ox[i]) < 0.35 && Math.abs(oy[i]) < 0.35 &&
+          Math.abs(vx[i]) < 0.08 && Math.abs(vy[i]) < 0.08) {
+        ox[i] = 0;
+        oy[i] = 0;
+        vx[i] = 0;
+        vy[i] = 0;
+        on[i] = 0;
+      } else {
+        nextActive.push(i);
+      }
+    }
+    activeList = nextActive;
+  }
+
+  // Render text layers
+  function renderTextLayer(targetCtx, color) {
+    targetCtx.clearRect(0, 0, W, H);
+    targetCtx.drawImage(staticA, 0, 0);
+
+    if (color === COLORS.textBack) {
+      targetCtx.globalCompositeOperation = "source-in";
+      targetCtx.fillStyle = COLORS.textBack;
+      targetCtx.fillRect(0, 0, W, H);
+      targetCtx.globalCompositeOperation = "source-over";
+    }
+
+    const cs = cellSize;
+    targetCtx.fillStyle = color;
+
+    // 2) clearRect home cell (cs x cs) for every active particle
+    for (let i = 0; i < activeList.length; i++) {
+      const p = activeList[i];
+      targetCtx.clearRect(hx[p] - cs / 2, hy[p] - cs / 2, cs, cs);
+    }
+
+    // 3) draw active particles
+    for (let i = 0; i < activeList.length; i++) {
+      const p = activeList[i];
+      if (d[p] > 0.7 && r[p] > 0.82) continue;
+
+      const sz = cs * (1 - d[p] * (0.55 - 0.45 * r[p]));
+      const stretch = 1 + Math.min(Math.abs(vx[p]) / dpr * 0.35, 3.5) * (d[p] + 0.15);
+      targetCtx.globalAlpha = 1 - d[p] * 0.5;
+
+      const drawX = hx[p] + ox[p] - sz / 2 - (vx[p] < 0 ? sz * (stretch - 1) : 0);
+      const drawY = hy[p] + oy[p] - sz / 2;
+      targetCtx.fillRect(drawX, drawY, sz * stretch, sz);
+    }
+    targetCtx.globalAlpha = 1;
+
+    // 4) horizontal slice glitch
+    for (let s = 0; s < slices.length; s++) {
+      const sl = slices[s];
+      targetCtx.clearRect(sl.x, sl.y, sl.w, sl.h);
+      targetCtx.drawImage(
+        staticA,
+        sl.x, sl.y, sl.w, sl.h,
+        sl.x + sl.shift, sl.y, sl.w, sl.h
+      );
+    }
+  }
+
+  // Draw Halo
+  function drawHalo(ctx, t) {
+    if (!layoutData) return;
+    const S = layoutData.imgS * dpr;
+    const cx = (layoutData.imgX + layoutData.imgS * 0.5) * dpr;
+    const cy = (layoutData.imgY + layoutData.imgS * 0.046) * dpr + Math.sin(t * 1.6) * S * 0.006;
+    const rx = S * 0.148;
+    const ry = S * 0.026;
+
+    ctx.save();
+
+    // Pass 1
+    const grad = ctx.createLinearGradient(cx - rx, cy, cx + rx, cy);
+    grad.addColorStop(0, "#f5c24a");
+    grad.addColorStop(0.5, "#fff3c2");
+    grad.addColorStop(1, "#f0b93c");
+
+    ctx.lineWidth = Math.max(2, S * 0.0085);
+    ctx.shadowColor = "rgba(255,214,110,0.95)";
+    ctx.shadowBlur = S * 0.03;
+    ctx.strokeStyle = grad;
+
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Pass 2 on the same path
+    ctx.shadowBlur = S * 0.012;
+    ctx.lineWidth = Math.max(1, S * 0.003);
+    ctx.strokeStyle = "rgba(255,255,240,0.9)";
+
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // Pointer event listeners on .hero
+  hero.addEventListener("pointerdown", (e) => {
+    const rect = hero.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    pointer.x = x;
+    pointer.y = y;
+    pointer.prevX = x;
+    pointer.prevY = y;
+    pointer.velX = 0;
+    pointer.velY = 0;
+    pointer.speed = 0;
+    pointer.active = true;
+    lastStamp = null;
+  }, { passive: true });
+
+  hero.addEventListener("pointermove", (e) => {
+    const rect = hero.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (!pointer.active) {
+      pointer.prevX = x;
+      pointer.prevY = y;
+      pointer.velX = 0;
+      pointer.velY = 0;
+      pointer.speed = 0;
+      lastStamp = null;
+      pointer.active = true;
+    }
+    pointer.x = x;
+    pointer.y = y;
+  }, { passive: true });
+
+  hero.addEventListener("pointerleave", () => {
+    pointer.active = false;
+    lastStamp = null;
+  }, { passive: true });
+
+  hero.addEventListener("pointerup", (e) => {
+    if (e.pointerType !== "mouse") {
+      pointer.active = false;
+      lastStamp = null;
+    }
+  }, { passive: true });
+
+  hero.addEventListener("pointercancel", () => {
+    pointer.active = false;
+    lastStamp = null;
+  }, { passive: true });
+
+  // Main animation loop
+  let lastTime = 0;
+
+  function loop(now) {
+    requestAnimationFrame(loop);
+
+    if (!lastTime) lastTime = now;
+    const rawDt = (now - lastTime) / 1000;
+    lastTime = now;
+    const dt = Math.min(rawDt, 0.05);
+    const k = dt * 60;
+    const time = now / 1000;
+
+    // Update pointer velocity
+    if (pointer.active) {
+      if (k > 0) {
+        const instantVx = (pointer.x - pointer.prevX) / k;
+        const instantVy = (pointer.y - pointer.prevY) / k;
+        pointer.velX += (instantVx - pointer.velX) * 0.5;
+        pointer.velY += (instantVy - pointer.velY) * 0.5;
+      }
+      pointer.speed = Math.hypot(pointer.velX, pointer.velY);
+      pointer.prevX = pointer.x;
+      pointer.prevY = pointer.y;
+    } else {
+      pointer.velX *= 0.8;
+      pointer.velY *= 0.8;
+      pointer.speed = Math.hypot(pointer.velX, pointer.velY);
+    }
+
+    // 1) Update mask
+    updateMask(k);
+
+    // 2) Update particles
+    updateParticles(dt, k);
+
+    // 3) Render textA and textB
+    const hasActiveFx = activeList.length > 0 || slices.length > 0;
+    if (hasActiveFx || !textA_clean) {
+      renderTextLayer(textACtx, COLORS.textFront);
+      textA_clean = !hasActiveFx;
+    }
+
+    if (maskMax > 0.06) {
+      if (hasActiveFx || !textB_clean) {
+        renderTextLayer(textBCtx, COLORS.textBack);
+        textB_clean = !hasActiveFx;
+      }
+    } else {
+      textB_clean = false;
+    }
+
+    // 4) Compose FRONT straight onto #view
+    viewCtx.fillStyle = COLORS.front;
+    viewCtx.fillRect(0, 0, W, H);
+
+    viewCtx.drawImage(textA, 0, 0);
+
+    if (frontImage && layoutData) {
+      viewCtx.drawImage(
+        frontImage,
+        layoutData.imgX * dpr,
+        layoutData.imgY * dpr,
+        layoutData.imgS * dpr,
+        layoutData.imgS * dpr
+      );
+    }
+
+    drawHalo(viewCtx, time);
+
+    // 5) Compose BACK onto bufB when maskMax > 0.06
+    if (maskMax > 0.06 && backImage && layoutData) {
+      bufBCtx.fillStyle = COLORS.back;
+      bufBCtx.fillRect(0, 0, W, H);
+
+      bufBCtx.drawImage(textB, 0, 0);
+
+      bufBCtx.drawImage(
+        backImage,
+        layoutData.imgX * dpr,
+        layoutData.imgY * dpr,
+        layoutData.imgS * dpr,
+        layoutData.imgS * dpr
+      );
+
+      bufBCtx.globalCompositeOperation = "destination-in";
+      bufBCtx.imageSmoothingEnabled = true;
+      bufBCtx.drawImage(maskCanvas, 0, 0, W, H);
+      bufBCtx.globalCompositeOperation = "source-over";
+
+      viewCtx.drawImage(bufB, 0, 0);
+
+      viewCtx.globalCompositeOperation = "screen";
+      viewCtx.globalAlpha = 0.7;
+      viewCtx.imageSmoothingEnabled = true;
+      viewCtx.drawImage(glowCanvas, 0, 0, W, H);
+      viewCtx.globalCompositeOperation = "source-over";
+      viewCtx.globalAlpha = 1.0;
+    }
+  }
+
+  // Image loader
+  function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.decoding = "async";
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Unable to fetch media"));
+      img.src = url;
+    });
+  }
+
+  // Boot sequence
+  Promise.all([
+    loadImage(FRONT_URL),
+    loadImage(BACK_URL),
+    document.fonts.load("400 100px Anton")
+  ]).then(([fImg, bImg]) => {
+    frontImage = fImg;
+    backImage = bImg;
+    resize();
+    loader.classList.add("done");
+    requestAnimationFrame(loop);
+  }).catch((err) => {
+    console.error(err);
+    loader.textContent = "Unable to fetch media";
+  });
+})();
+    </script>
+  </body>
+</html>

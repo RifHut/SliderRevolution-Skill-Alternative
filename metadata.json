@@ -1,0 +1,6 @@
+{
+  "name": "Good Fox — Crafts Atelier",
+  "description": "Makers & Craftsmen Crafts Atelier — Good Fox hero with cursor-path dark-twin reveal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
